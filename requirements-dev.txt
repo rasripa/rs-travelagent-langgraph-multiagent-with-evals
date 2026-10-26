@@ -1,0 +1,10 @@
+# Development-only tools. Deliberately NOT in requirements.txt, because the
+# packager vendors that file into the deployment zip and the artifact is already
+# 58 MB against a 250 MB limit -- a linter has no business in a runtime.
+#
+#   uv pip install -r requirements.txt -r requirements-dev.txt
+#
+# Used by the checks README.md section 4 asks you to run:
+#   ruff check --select F,B,ARG,UP common/ agents/ mcp_servers/ scripts/ deploy/ frontend/ knowledgebase/
+
+ruff==0.17.2

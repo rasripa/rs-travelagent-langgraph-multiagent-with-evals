@@ -1,0 +1,45 @@
+{
+  "_comment": "Synthetic fares. The Advance/Off-Peak/Anytime contrast is deliberate: Advance is cheap and rigid, Anytime is expensive and fully flexible. That contrast is what makes the policy conversation in the demo meaningful. Prices are the undiscounted adult single; railcard discount is applied by the get_fares tool.",
+  "railcards": {
+    "_comment": "Public fare reference data, not traveller PII. The Journey Search server uses this to price a discount once the Planner has learned WHICH railcard the traveller holds from the shared Traveller Profile server. discount_percent must stay in step with fixtures/travellers.json.",
+    "TTG": {"code": "TTG", "name": "Two Together Railcard", "discount_percent": 33.4, "restricted_fare_types": ["Off-Peak", "Anytime"], "restriction": "Not valid before 09:30 Mon-Fri on Off-Peak and Anytime fares. Advance fares are unrestricted."},
+    "YNG": {"code": "YNG", "name": "16-25 Railcard", "discount_percent": 33.4, "restricted_fare_types": ["Anytime"], "restriction": "Minimum fare applies to Anytime tickets before 10:00 Mon-Fri."},
+    "SRN": {"code": "SRN", "name": "Senior Railcard", "discount_percent": 33.4, "restricted_fare_types": ["Anytime"], "restriction": "Not valid on Anytime fares before 09:30 Mon-Fri."},
+    "FAM": {"code": "FAM", "name": "Family and Friends Railcard", "discount_percent": 33.4, "restricted_fare_types": [], "restriction": "No time restriction. At least one adult and one child must travel together."}
+  },
+  "fare_rules_summary": {
+    "Advance": {"refundable": false, "changeable": false, "change_fee_gbp": null, "train_specific": true},
+    "Off-Peak": {"refundable": true, "changeable": true, "change_fee_gbp": 10.0, "train_specific": false},
+    "Anytime": {"refundable": true, "changeable": true, "change_fee_gbp": 0.0, "train_specific": false}
+  },
+  "fares": {
+    "EUS-MAN": [
+      {"fare_type": "Advance", "travel_class": "Standard", "price_gbp": 37.00, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Off-Peak", "travel_class": "Standard", "price_gbp": 89.50, "conditions": "Valid on off-peak services. Changes and refunds permitted; 10 GBP administration fee applies."},
+      {"fare_type": "Anytime", "travel_class": "Standard", "price_gbp": 184.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."},
+      {"fare_type": "Advance", "travel_class": "First", "price_gbp": 89.00, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Anytime", "travel_class": "First", "price_gbp": 289.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."}
+    ],
+    "KGX-EDB": [
+      {"fare_type": "Advance", "travel_class": "Standard", "price_gbp": 54.00, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Off-Peak", "travel_class": "Standard", "price_gbp": 132.00, "conditions": "Valid on off-peak services. Changes and refunds permitted; 10 GBP administration fee applies."},
+      {"fare_type": "Anytime", "travel_class": "Standard", "price_gbp": 198.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."},
+      {"fare_type": "Anytime", "travel_class": "First", "price_gbp": 341.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."}
+    ],
+    "MAN-LDS": [
+      {"fare_type": "Advance", "travel_class": "Standard", "price_gbp": 8.40, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Off-Peak", "travel_class": "Standard", "price_gbp": 16.80, "conditions": "Valid on off-peak services. Changes and refunds permitted; 10 GBP administration fee applies."},
+      {"fare_type": "Anytime", "travel_class": "Standard", "price_gbp": 24.60, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."}
+    ],
+    "EUS-BHM": [
+      {"fare_type": "Advance", "travel_class": "Standard", "price_gbp": 19.50, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Off-Peak", "travel_class": "Standard", "price_gbp": 45.00, "conditions": "Valid on off-peak services. Changes and refunds permitted; 10 GBP administration fee applies."},
+      {"fare_type": "Anytime", "travel_class": "Standard", "price_gbp": 97.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."}
+    ],
+    "KGX-YRK": [
+      {"fare_type": "Advance", "travel_class": "Standard", "price_gbp": 31.00, "conditions": "Valid only on the booked service. No changes, no refunds."},
+      {"fare_type": "Off-Peak", "travel_class": "Standard", "price_gbp": 78.50, "conditions": "Valid on off-peak services. Changes and refunds permitted; 10 GBP administration fee applies."},
+      {"fare_type": "Anytime", "travel_class": "Standard", "price_gbp": 126.00, "conditions": "Valid on any service. Fully flexible, fully refundable, no fee."}
+    ]
+  }
+}

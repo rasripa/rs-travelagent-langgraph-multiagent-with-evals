@@ -1,0 +1,95 @@
+{
+  "_comment": "Synthetic travellers. Fictional people, fictional accounts. Three profiles chosen so fare and refund maths visibly differ between them.",
+  "travellers": {
+    "TRV-1001": {
+      "traveller_id": "TRV-1001",
+      "name": "Sarah Chen",
+      "email": "sarah.chen@example.invalid",
+      "home_station": "EUS",
+      "seat_preferences": {
+        "coach": "quiet",
+        "seat_type": "table",
+        "direction": "forward-facing",
+        "class": "standard"
+      },
+      "accessibility": null,
+      "railcard": {
+        "type": "Two Together Railcard",
+        "code": "TTG",
+        "discount_percent": 33.4,
+        "expires": "2027-04-18",
+        "conditions": "Both named cardholders must travel together. Time restrictions apply to Off-Peak and Anytime fares before 09:30 Mon-Fri; Advance fares are unrestricted."
+      },
+      "loyalty": {
+        "tier": "Silver",
+        "points": 4820,
+        "benefits": ["Seat selection included", "Priority customer support"]
+      }
+    },
+    "TRV-1002": {
+      "traveller_id": "TRV-1002",
+      "name": "Marcus Webb",
+      "email": "marcus.webb@example.invalid",
+      "home_station": "MAN",
+      "seat_preferences": {
+        "coach": "any",
+        "seat_type": "window",
+        "direction": "forward-facing",
+        "class": "standard"
+      },
+      "accessibility": null,
+      "railcard": {
+        "type": "16-25 Railcard",
+        "code": "YNG",
+        "discount_percent": 33.4,
+        "expires": "2026-12-01",
+        "conditions": "Minimum fare applies to Anytime tickets before 10:00 Mon-Fri."
+      },
+      "loyalty": {
+        "tier": "Bronze",
+        "points": 610,
+        "benefits": ["Fare alerts"]
+      }
+    },
+    "TRV-1003": {
+      "traveller_id": "TRV-1003",
+      "name": "Eleanor Shaw",
+      "email": "eleanor.shaw@example.invalid",
+      "home_station": "KGX",
+      "seat_preferences": {
+        "coach": "any",
+        "seat_type": "wheelchair space",
+        "direction": "any",
+        "class": "standard"
+      },
+      "accessibility": {
+        "wheelchair_space_required": true,
+        "assistance_booked": true,
+        "notes": "Ramp assistance required at boarding and alighting."
+      },
+      "railcard": null,
+      "loyalty": {
+        "tier": "Gold",
+        "points": 19340,
+        "benefits": [
+          "Lounge access",
+          "Free seat selection",
+          "Dedicated assistance line",
+          "Priority rebooking during disruption"
+        ]
+      }
+    }
+  },
+  "saved_journeys": {
+    "TRV-1001": [
+      {"origin": "EUS", "destination": "MAN", "label": "London to Manchester", "frequency": "monthly"},
+      {"origin": "EUS", "destination": "BHM", "label": "London to Birmingham", "frequency": "occasional"}
+    ],
+    "TRV-1002": [
+      {"origin": "MAN", "destination": "LDS", "label": "Manchester to Leeds", "frequency": "weekly commute"}
+    ],
+    "TRV-1003": [
+      {"origin": "KGX", "destination": "EDB", "label": "London to Edinburgh", "frequency": "quarterly"}
+    ]
+  }
+}

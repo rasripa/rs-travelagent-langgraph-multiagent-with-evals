@@ -1,0 +1,38 @@
+# Train Travel Agent demo -- pinned to the versions this project was built and
+# verified against. Two pins are deliberate ceilings, not laziness:
+#
+#   mcp<2      mcp 2.x renames FastMCP to MCPServer and changes the server API.
+#              AgentCore's documented MCP contract (stateless_http=True on a
+#              streamable-HTTP server at 0.0.0.0:8000/mcp) is written against
+#              the 1.x FastMCP surface, as are the AgentCore samples.
+#
+#   a2a-sdk<1  a2a-sdk 1.x replaced the pydantic type model with protobuf
+#              (a2a_pb2) and swapped A2AStarletteApplication for route
+#              factories. 0.3.x matches the AgentCore A2A samples and already
+#              defaults its agent card to /.well-known/agent-card.json, which
+#              is what the AgentCore A2A contract requires.
+#
+# Both ceilings are safe to lift later; see README.md "Upgrading the SDKs".
+
+mcp==1.30.0
+a2a-sdk==0.3.26
+
+langgraph==1.2.17
+langchain-core==1.7.0
+langchain-aws==1.9.0
+langchain-mcp-adapters==0.3.1
+
+boto3==1.43.118
+httpx==0.28.1
+uvicorn==0.54.0
+starlette==1.10.0
+pydantic==2.14.1
+
+# Tracing, exported to AgentCore Observability. REQUIRED, not optional: besides
+# the AWS X-Ray id generator, the SigV4 span exporter and the propagator, this
+# distro ships the OpenTelemetry launcher and the LangChain/MCP agentic
+# instrumentation that CloudWatch GenAI Observability reads. Without it you get
+# HTTP spans only -- no model spans, no token counts, and the Bedrock AgentCore
+# Observability dashboard shows 0 agents. The launcher is activated by putting
+# its directory on PYTHONPATH; see common/observability.py and README.md §9.
+aws-opentelemetry-distro==0.21.0

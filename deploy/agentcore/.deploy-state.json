@@ -1,0 +1,66 @@
+{
+  "account_id": "588792541783",
+  "deployer_arn": "arn:aws:iam::588792541783:user/rasripa",
+  "bucket": "travel-demo-code-588792541783-us-west-2",
+  "role_mcp": "arn:aws:iam::588792541783:role/travel-demo-mcp-runtime-role",
+  "role_gateway": "arn:aws:iam::588792541783:role/travel-demo-gateway-role",
+  "role_kb": "arn:aws:iam::588792541783:role/travel-demo-kb-role",
+  "role_journey_planner": "arn:aws:iam::588792541783:role/travel-demo-journey-planner-role",
+  "role_journey_support": "arn:aws:iam::588792541783:role/travel-demo-journey-support-role",
+  "role_train_travel_agent": "arn:aws:iam::588792541783:role/travel-demo-orchestrator-role",
+  "code_bucket": "travel-demo-code-588792541783-us-west-2",
+  "code_key": "code/travel_agent_deploy.zip",
+  "mcp_runtimes": {
+    "traveller_profile": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_traveller_profile-MynGtoAsg9",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_traveller_profile-MynGtoAsg9/invocations?qualifier=DEFAULT"
+    },
+    "journey_search": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_journey_search-nVXfC181by",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_journey_search-nVXfC181by/invocations?qualifier=DEFAULT"
+    },
+    "ticket_operations": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_ticket_operations-X2Bh3GBmVe",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_ticket_operations-X2Bh3GBmVe/invocations?qualifier=DEFAULT"
+    }
+  },
+  "kb_id": "CVTMAPQI1P",
+  "kb_arn": "arn:aws:bedrock:us-west-2:588792541783:knowledge-base/CVTMAPQI1P",
+  "kb_data_source_id": "KTPGJMRNWO",
+  "policy_engine_arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:policy-engine/travel_demo_policy_engine-s1yhy4_yng",
+  "policy_engine_id": "travel_demo_policy_engine-s1yhy4_yng",
+  "gateway_id": "travel-demo-gateway-ehcezfksij",
+  "gateway_arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:gateway/travel-demo-gateway-ehcezfksij",
+  "gateway_url": "https://travel-demo-gateway-ehcezfksij.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp",
+  "agent_runtimes": {
+    "journey_planner": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_journey_planner-Gju3UN5szP",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_journey_planner-Gju3UN5szP/invocations/"
+    },
+    "journey_support": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_journey_support-15rZyfBRst",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_journey_support-15rZyfBRst/invocations/"
+    },
+    "train_travel_agent": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_train_travel_agent-7YiEUtH09X",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_train_travel_agent-7YiEUtH09X/invocations?qualifier=DEFAULT"
+    },
+    "policy_advisor": {
+      "arn": "arn:aws:bedrock-agentcore:us-west-2:588792541783:runtime/travel_demo_policy_advisor-b9nXrc317T",
+      "url": "https://bedrock-agentcore.us-west-2.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-west-2%3A588792541783%3Aruntime%2Ftravel_demo_policy_advisor-b9nXrc317T/invocations/"
+    }
+  },
+  "role_memory": "arn:aws:iam::588792541783:role/travel-demo-memory-role",
+  "memory_id": "travel_demo_memory-lYIVARH95l",
+  "parameters": [
+    "/travel-demo/embed-model-id",
+    "/travel-demo/gateway-url",
+    "/travel-demo/journey-planner-a2a-url",
+    "/travel-demo/journey-support-a2a-url",
+    "/travel-demo/memory-id",
+    "/travel-demo/model-id",
+    "/travel-demo/policy-advisor-a2a-url",
+    "/travel-demo/sub-agents"
+  ],
+  "role_policy_advisor": "arn:aws:iam::588792541783:role/travel-demo-policy-advisor-role"
+}

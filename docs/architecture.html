@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Train Travel Agent &middot; Architecture &amp; Solution Detail</title>
+</head>
+<body style="margin:0; padding:0; background:#eef3fb; color:#13263f; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; line-height:1.55; font-size:15px;">
+
+<div style="background:linear-gradient(135deg,#0b2e59 0%,#15509e 100%); color:#ffffff; padding:36px 40px;">
+  <div style="font-size:12px; letter-spacing:2.4px; text-transform:uppercase; color:#9ec2f0;">Solution Architecture &middot; Demo Build</div>
+  <h1 style="margin:8px 0 6px 0; font-size:30px; font-weight:700;">Train Travel Agent</h1>
+  <div style="font-size:16px; color:#cfe0f7; max-width:900px;">A multi-agent rail assistant on Amazon Bedrock AgentCore &mdash; a domain-agnostic router, three specialist Tier-2 sub-agents discovered over A2A, three MCP tool servers behind a single governed gateway, and a standalone two-SDK evaluation subsystem.</div>
+  <div style="margin-top:16px; font-size:12px; color:#9ec2f0;">LangGraph (Python) agents &middot; AgentCore Runtime &middot; AgentCore Gateway + Cedar policy &middot; synthetic data throughout</div>
+</div>
+
+<div style="padding:28px 40px;">
+
+  <!-- ===== WHAT WE ARE BUILDING ===== -->
+  <div style="background:#dde9f8; border-left:6px solid #15509e; border-radius:8px; padding:18px 22px; margin-bottom:24px;">
+    <div style="font-weight:700; color:#0b2e59; font-size:16px; margin-bottom:6px;">What this is</div>
+    <p style="margin:0 0 10px 0;">A working rail travel assistant that demonstrates the four things customers most often get wrong in multi-agent design: <strong>when a capability deserves to be an agent</strong>, <strong>how agents coordinate</strong>, <strong>how tool access is isolated per agent</strong>, and <strong>where policy knowledge belongs</strong>.</p>
+    <p style="margin:0;">Everything runs on synthetic data. No real rail APIs, no real passenger records, no payment flows &mdash; the tool responses are fixtures shaped like real API payloads so the agent behaviour is faithful without any external dependency.</p>
+  </div>
+
+  <!-- ===== TOPOLOGY ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">1. Topology</h2>
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:10px; padding:22px; margin-bottom:12px;">
+
+    <div style="text-align:center; margin-bottom:12px;">
+      <div style="display:inline-block; background:#ffffff; border:2px solid #15509e; border-radius:8px; padding:8px 22px; font-weight:600; color:#0b2e59;">Traveller</div>
+      <div style="color:#6b7a90; font-size:12px; margin-top:4px;">&darr;</div>
+    </div>
+
+    <div style="background:#0b2e59; color:#fff; border-radius:9px; padding:14px 18px; margin-bottom:6px;">
+      <div style="font-weight:700; font-size:17px;">Train Travel Agent <span style="font-weight:400; font-size:13px; color:#cfe0f7;">&mdash; TIER 1 router, the only user-facing agent</span></div>
+      <div style="font-size:13px; color:#bcd6f5; margin-top:6px;">LangGraph on AgentCore Runtime &middot; sole owner of conversation state and memory &middot; <strong>holds ZERO tools</strong> &mdash; it is domain-agnostic and discovers its sub-agents at runtime from their <strong>A2A agent cards</strong></div>
+    </div>
+    <div style="text-align:center; color:#15509e; font-size:12px; margin:8px 0;">&darr;&nbsp; delegates over <strong>A2A</strong> (JSON-RPC 2.0, task + artifact) &nbsp;&darr;</div>
+
+    <table style="width:100%; border-collapse:separate; border-spacing:12px 0; margin-bottom:6px;">
+      <tr>
+        <td style="width:50%; background:#ffffff; border:2px solid #15509e; border-radius:9px; padding:13px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59;">Journey Planner Agent</div>
+          <div style="font-size:12.5px; color:#5a7a9e; margin-top:4px;">pre-travel &mdash; search, price, book</div>
+        </td>
+        <td style="width:34%; background:#ffffff; border:2px solid #15509e; border-radius:9px; padding:13px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59;">Journey Support Agent</div>
+          <div style="font-size:12.5px; color:#5a7a9e; margin-top:4px;">post-booking &mdash; change, refund, disruption, compensation</div>
+        </td>
+        <td style="width:32%; background:#ffffff; border:2px solid #15509e; border-radius:9px; padding:13px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59;">Policy Advisor</div>
+          <div style="font-size:12.5px; color:#5a7a9e; margin-top:4px;">the rules &mdash; fares, refunds, railcards, Delay Repay, accessibility</div>
+        </td>
+      </tr>
+    </table>
+    <div style="text-align:center; background:#fdeaea; border-radius:7px; padding:7px; font-size:12.5px; color:#8d2a1d; margin-bottom:12px;">
+      <strong>NO peer A2A.</strong> Sub-agents never call each other &mdash; every hop is router &rarr; sub-agent &rarr; router
+    </div>
+
+    <div style="text-align:center; color:#15509e; font-size:12px; margin-bottom:8px;">&darr;&nbsp; MCP over HTTPS &middot; each agent presents <strong>its own</strong> workload identity &nbsp;&darr;</div>
+
+    <div style="background:#ffffff; border:2px solid #15509e; border-radius:9px; padding:13px; margin-bottom:12px;">
+      <div style="text-align:center; font-weight:700; color:#0b2e59;">One AgentCore Gateway</div>
+      <div style="text-align:center; font-size:12.5px; color:#334e6e; margin-top:4px;">aggregates all three MCP servers into a single virtual MCP endpoint &middot; <strong>Cedar policy filters <code>tools/list</code> per agent identity</strong> &middot; one audit trail</div>
+    </div>
+
+    <table style="width:100%; border-collapse:separate; border-spacing:10px 0;">
+      <tr>
+        <td style="width:33%; background:#eaf1fb; border:1px solid #9ec2f0; border-radius:8px; padding:11px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59; font-size:13.5px;">Journey Search MCP</div>
+          <div style="font-size:11.5px; color:#5a7a9e;">Planner only</div>
+        </td>
+        <td style="width:33%; background:#dff0e3; border:1px solid #9ccfb0; border-radius:8px; padding:11px; vertical-align:top;">
+          <div style="font-weight:700; color:#14562f; font-size:13.5px;">Traveller Profile MCP</div>
+          <div style="font-size:11.5px; color:#2c5540;"><strong>SHARED</strong> &mdash; both agents</div>
+        </td>
+        <td style="width:33%; background:#eaf1fb; border:1px solid #9ec2f0; border-radius:8px; padding:11px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59; font-size:13.5px;">Ticket Operations MCP</div>
+          <div style="font-size:11.5px; color:#5a7a9e;">Support only</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+  <p style="font-size:12.5px; color:#6b7a90; margin-bottom:26px;">Three agents, three MCP servers, nine tools. Each sub-agent sees six tools: its own three plus the three shared ones.</p>
+
+  <!-- ===== WHY THIS SPLIT ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">2. Why this split, and not another</h2>
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <p style="margin:0 0 10px 0;"><strong>Split by lifecycle, not by domain.</strong> The two <em>transactional</em> sub-agents divide on <em>pre-travel</em> versus <em>post-booking</em>, with a third, the Policy Advisor, owning the rules that both of them are judged against. The obvious alternative &mdash; splitting by domain, say a Fares Agent and a Timetable Agent &mdash; was rejected for two reasons:</p>
+    <ul style="margin:0; padding-left:20px;">
+      <li>It gives the agents no legitimate reason to share a tool server, so the shared-server design becomes contrived.</li>
+      <li>It cuts across how travellers actually ask for things. &ldquo;Book me a train&rdquo; and &ldquo;my train is cancelled&rdquo; are different jobs; &ldquo;fares&rdquo; and &ldquo;timetables&rdquo; are the same job seen from two angles, and a single query usually needs both.</li>
+    </ul>
+    <p style="margin:10px 0 0 0;"><strong>Agent boundaries should follow query boundaries.</strong> A disrupted-journey question touches identity, the existing booking, alternative services and compensation &mdash; so those belong together behind one agent, even though they span several backends.</p>
+  </div>
+
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong>The test we applied, and would apply again:</strong> a capability earns its own agent only if it needs <em>its own reasoning loop</em> &mdash; multi-step planning, its own context, or an independent release cycle. If it is a single lookup, it is a tool, not an agent. That is precisely why the <strong>policy knowledge base sits on the orchestrator as a tool</strong> rather than behind a third &ldquo;Policy Agent&rdquo;: answering &ldquo;can I change an Advance ticket?&rdquo; needs no booking context and no planning, so spawning an agent for it would add a full model round trip for nothing.
+  </div>
+
+  <!-- ===== AGENTS ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">3. The four identities</h2>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:14px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:20%;">Agent</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Responsibility</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:26%;">Reaches</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>Train Travel Agent</strong><br><span style="font-size:12px; color:#5a7a9e;">orchestrator</span></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Owns the conversation. Classifies intent, answers policy questions directly from the knowledge base, delegates real work. Holds memory and guardrails. <strong>Never calls an MCP tool server.</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Policy KB tool &middot; Planner (A2A) &middot; Support (A2A)</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>Journey Planner</strong><br><span style="font-size:12px; color:#5a7a9e;">pre-travel</span></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Finds services, prices fares against the traveller's railcard, books tickets. Also serves alternative-service requests from the Support agent during disruption.</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Journey Search MCP &middot; Traveller Profile MCP</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>Journey Support</strong><br><span style="font-size:12px; color:#5a7a9e;">post-booking</span></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Retrieves bookings, applies fare-type rules to changes and refunds, handles disruption rebooking, files delay compensation. Delegates journey search to the Planner rather than duplicating it.</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Ticket Operations MCP &middot; Traveller Profile MCP &middot; Planner (A2A)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px; color:#3c5a7d; margin-bottom:26px;">All four are LangGraph graphs. The router is an A2A <em>client</em> only; the three sub-agents are A2A <em>servers</em>; the Support agent is both.</p>
+
+  <!-- ===== MCP SERVERS ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">4. MCP servers and tools</h2>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:22%;">Server</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:22%;">Tool</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Returns</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#dff0e3;">
+        <td rowspan="3" style="padding:9px 12px; border:1px solid #9ccfb0; vertical-align:top;"><strong>Traveller Profile</strong><br><span style="font-size:11.5px; color:#2c5540;">SHARED &mdash; both agents</span></td>
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;"><code>get_traveller_profile</code></td>
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;">Name, home station, seat preferences (quiet coach, table, forward-facing), accessibility needs</td>
+      </tr>
+      <tr style="background:#dff0e3;">
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;"><code>get_railcard_and_loyalty</code></td>
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;">Railcard type, discount percentage, expiry; loyalty tier and points</td>
+      </tr>
+      <tr style="background:#dff0e3;">
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;"><code>list_saved_journeys</code></td>
+        <td style="padding:8px 12px; border:1px solid #9ccfb0;">Frequent and commuter routes saved to the account</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td rowspan="3" style="padding:9px 12px; border:1px solid #c3d4ec; vertical-align:top;"><strong>Journey Search</strong><br><span style="font-size:11.5px; color:#5a7a9e;">Planner only</span></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>search_journeys</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Services with departure/arrival, changes, duration, operator, live status</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>get_fares</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Advance / Off-Peak / Anytime options by class, with railcard discount applied and refundability flags</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>book_ticket</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Booking reference, ticket type, seat reservation, total paid</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td rowspan="3" style="padding:9px 12px; border:1px solid #c3d4ec; vertical-align:top;"><strong>Ticket Operations</strong><br><span style="font-size:11.5px; color:#5a7a9e;">Support only</span></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>get_booking</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Booking by reference: legs, fare type, status, amount paid</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>change_or_cancel_ticket</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Eligibility verdict plus fee/refund breakdown, driven by fare type</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>claim_delay_repay</code></td>
+        <td style="padding:8px 12px; border:1px solid #c3d4ec;">Claim reference, qualifying delay band, compensation amount and method</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:16px 20px; margin-bottom:26px;">
+    <strong style="color:#0b2e59;">Why Traveller Profile is the right server to share</strong>
+    <p style="margin:8px 0 0 0;">Both agents need it for genuinely different reasons. The Planner needs the <strong>railcard to compute correct fares</strong> and the home station to default the origin. The Support agent needs <strong>the same railcard to compute refund and compensation entitlement</strong>, and identity to locate bookings. One dataset, two consumers, two purposes &mdash; which is what makes sharing legitimate rather than an artefact of the demo. It is also the only PII-bearing server, which is what makes the access-control story below worth telling.</p>
+  </div>
+
+  <!-- ===== THE ISOLATION STORY ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">5. Per-agent tool isolation &mdash; the core technical point</h2>
+  <p>Each sub-agent must see <strong>only</strong> the tools it is entitled to. The naive way to achieve that is a separate MCP server per agent with no sharing &mdash; which costs you a unified catalogue, central audit, and one credential boundary, and still leaves no authorization layer. We do it with policy instead.</p>
+
+  <div style="background:#ffffff; border:1px solid #c3d4ec; border-left:6px solid #1b7a46; border-radius:9px; padding:16px 20px; margin-bottom:14px;">
+    <p style="margin:0 0 10px 0;">AgentCore Policy evaluates Cedar on <strong>every</strong> request, default-deny, and &mdash; the part that matters here &mdash; it governs <strong>discovery as well as invocation</strong>. Tools denied by policy do not appear in <code>tools/list</code> at all.</p>
+    <p style="margin:0;">So both sub-agents call the <em>same</em> gateway endpoint and receive <em>different</em> catalogues:</p>
+  </div>
+
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:14px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:24%;">Calling identity</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;"><code>tools/list</code> returns</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:22%;">Cannot see or call</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>Journey Planner</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Journey Search (3) + Traveller Profile <strong>2 of 3</strong> = <strong>5 tools</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">All of Ticket Operations, <em>and</em> <code>get_railcard_and_loyalty</code> on the shared server</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>Journey Support</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Ticket Operations (3) + Traveller Profile <strong>1 of 3</strong> = <strong>4 tools</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">All of Journey Search, <em>and</em> <code>get_traveller_profile</code> + <code>list_saved_journeys</code> on the shared server</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:16px 20px; margin-bottom:14px;">
+    <div style="font-weight:700; color:#0b2e59; margin-bottom:6px;">The Cedar policies, in full</div>
+    <pre style="margin:0; background:#0b2e59; color:#cfe0f7; padding:14px 16px; border-radius:7px; font-size:12.5px; overflow-x:auto; font-family:'SF Mono',Monaco,Menlo,monospace;">// Planner: journey search + shared profile
+permit(
+  principal == AgentCore::IamEntity::"arn:aws:sts::&lt;account&gt;:assumed-role/travel-demo-journey-planner-role",
+  action in [
+    AgentCore::Action::"JourneySearch___search_journeys",
+    AgentCore::Action::"JourneySearch___get_fares",
+    AgentCore::Action::"JourneySearch___book_ticket",
+    AgentCore::Action::"TravellerProfile___get_traveller_profile",
+    AgentCore::Action::"TravellerProfile___list_saved_journeys"
+  ],
+  resource
+);
+
+// Support: ticket operations + shared profile
+permit(
+  principal == AgentCore::IamEntity::"arn:aws:sts::&lt;account&gt;:assumed-role/travel-demo-journey-support-role",
+  action in [
+    AgentCore::Action::"TicketOperations___get_booking",
+    AgentCore::Action::"TicketOperations___change_or_cancel_ticket",
+    AgentCore::Action::"TicketOperations___claim_delay_repay",
+    AgentCore::Action::"TravellerProfile___get_traveller_profile",
+    AgentCore::Action::"TravellerProfile___get_railcard_and_loyalty",
+    AgentCore::Action::"TravellerProfile___list_saved_journeys"
+  ],
+  resource
+);</pre>
+    <p style="margin:10px 0 0 0; font-size:13px; color:#3c5a7d;">Tool names are target-prefixed by the gateway as <code>TargetName___toolName</code>, which is what makes these policies writable. Cedar is default-deny, so nothing beyond these two statements is reachable by either agent &mdash; and <code>forbid</code> would override <code>permit</code> if we later needed an exception.</p>
+  </div>
+
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong>Two limits to state honestly in the walkthrough.</strong>
+    <ul style="margin:8px 0 0 0; padding-left:20px;">
+      <li><strong>Listing is a meta-action.</strong> A principal may list a tool if <em>any</em> circumstance would permit calling it. So a parameter-conditional restriction (for example, refunds only below a threshold) leaves the tool <em>visible</em> while still denying the out-of-bounds call. To hide such a tool entirely you add a RESPONSE interceptor. Our policies are unconditional, so filtering here is absolute.</li>
+      <li><strong>Policy covers MCP tools only.</strong> MCP <em>prompts</em> and <em>resources</em> are always allowed regardless of policy, and are auto-synced into the catalogue if a server advertises them. Our three servers therefore expose <strong>tools only</strong> &mdash; a deliberate design constraint, not an accident.</li>
+    </ul>
+  </div>
+
+  <!-- ===== A2A ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">6. A2A on the agent plane</h2>
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <p style="margin:0 0 10px 0;"><strong>Two planes, deliberately separate.</strong> A2A carries agent-to-agent delegation; MCP carries agent-to-tool access. This matches the Well-Architected Agentic AI Lens guidance to use &ldquo;MCP for tool integration, A2A for agent-to-agent coordination.&rdquo; AgentCore Gateway is an MCP gateway, not an A2A router &mdash; so A2A here is Runtime-to-Runtime and does not pass through the gateway.</p>
+    <p style="margin:0 0 6px 0;"><strong>Three A2A paths, and they all start at the router:</strong></p>
+    <ul style="margin:0; padding-left:20px;">
+      <li>Train Travel Agent &rarr; Journey Planner &mdash; &ldquo;plan and book this trip&rdquo;</li>
+      <li>Train Travel Agent &rarr; Journey Support &mdash; &ldquo;deal with this booking problem&rdquo;</li>
+      <li>Train Travel Agent &rarr; Policy Advisor &mdash; &ldquo;what do the rules say&rdquo;</li>
+    </ul>
+    <p style="margin:10px 0 0 0;"><strong>There is deliberately no fourth path.</strong> An earlier revision had Journey Support delegate to the Journey Planner during disruption, which read well &mdash; a genuine peer delegation, a task handed over and an artifact returned. It was the wrong shape. A peer edge couples two Tier-2 agents: the team that owns Support can no longer change its interface without checking who else calls it, which is the developmental bottleneck a multi-agent split exists to remove. It also puts routing logic inside a domain agent, where no platform team can see it.</p>
+    <p style="margin:10px 0 0 0;">So Tier 2 is a set of <em>leaves</em>. When a request needs two capabilities &mdash; the entitlement rule <em>and</em> the action on the booking &mdash; Support reports that a search is required and the <strong>router</strong> fans out to the Planner, then joins the answers. One extra hop through Tier 1 buys a topology where every edge is visible at the router and no Tier-2 agent knows another exists. The constraint is enforced by IAM, not by convention: no sub-agent role grants <code>InvokeAgentRuntime</code> on a peer.</p>
+    <p style="margin:10px 0 0 0;"><strong>Discovery is what makes this loose rather than merely hub-and-spoke.</strong> The router holds no hardcoded delegation tools. At startup it reads a <code>sub-agents</code> registry, fetches each agent&rsquo;s card from <code>/.well-known/agent-card.json</code>, and synthesises one tool per agent whose description is built from the <code>AgentSkill</code> entries that card advertises &mdash; id, name, description, tags and examples. The model then routes by reading tool descriptions, the same mechanism it uses for every other tool. Adding a Tier-2 agent is a deployment plus one registry entry; the router is not redeployed and not edited. An unreachable card is skipped with a warning rather than failing startup, because one sick Tier-2 agent must not take the assistant down.</p>
+  </div>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:16px 20px; margin-bottom:14px;">
+    <div style="font-weight:700; color:#0b2e59; margin-bottom:6px;">What the A2A contract requires of each sub-agent</div>
+    <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+      <tr><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff; width:34%;"><strong>Transport</strong></td><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff;">JSON-RPC 2.0 over HTTP</td></tr>
+      <tr><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#f5f9fe;"><strong>Bind and port</strong></td><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#f5f9fe;"><code>0.0.0.0</code> on port <strong>9000</strong>, inside the container</td></tr>
+      <tr><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff;"><strong>Platform</strong></td><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff;">ARM64 Linux. The artifact may be a container image <em>or</em> a direct-code <code>.zip</code> in S3 with a Python runtime and an <code>entryPoint</code>. <strong>This demo uses direct code deployment</strong> &mdash; one zip shared by all six runtimes, no Dockerfile and no ECR. The ARM64 requirement still applies: the vendored dependencies must be Linux <code>aarch64</code> wheels, not the host's.</td></tr>
+      <tr><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#f5f9fe;"><strong>Discovery</strong></td><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#f5f9fe;">Agent Card at <code>/.well-known/agent-card.json</code> advertising <code>skills[]</code></td></tr>
+      <tr><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff;"><strong>Health</strong></td><td style="padding:6px 10px; border:1px solid #c3d4ec; background:#fff;"><code>/ping</code> returning <code>Healthy</code> or <code>HealthyBusy</code></td></tr>
+    </table>
+    <p style="margin:10px 0 0 0; font-size:13px; color:#8a5500; background:#fff6e6; border-left:5px solid #e08a00; padding:10px 14px; border-radius:6px;"><strong>Trap to avoid:</strong> do not set <code>time_of_last_update</code> to the current time on every ping. A timestamp that advances each ping signals continuous status change, the idle-session timeout never fires, and sessions persist to <code>MaxLifetime</code> and exhaust the session quota.</p>
+  </div>
+
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong>The LangGraph cost, stated plainly.</strong> Strands ships a built-in <code>StrandsA2AExecutor</code> that wraps an agent and auto-builds its Agent Card. <strong>LangGraph has no equivalent</strong>, and remote A2A agents are not native LangGraph nodes &mdash; so we write both halves: an <code>AgentExecutor</code> on each sub-agent that invokes the compiled graph and maps its output onto A2A events, and an A2A client in the callers. This is real work and it is the main reason to adopt A2A only where it earns its place.
+    <div style="margin-top:8px;">Also: the A2A samples use an in-memory task store, which will not survive AgentCore's per-session microVMs. For the demo that is acceptable; for production a durable task store is required if you depend on task lifecycle across turns.</div>
+  </div>
+
+  <!-- ===== KNOWLEDGE BASE ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">7. Policy &amp; FAQ knowledge base</h2>
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <p style="margin:0 0 10px 0;">A single tool on the orchestrator, backed by five synthetic policy documents. Rail fare rules are genuinely intricate, which makes retrieval the right mechanism rather than prompt-stuffing.</p>
+    <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+      <tr style="background:#0b3d91; color:#fff;"><th style="text-align:left; padding:8px 11px;">Document</th><th style="text-align:left; padding:8px 11px;">Covers</th></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;"><code>fare-rules.md</code></td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Advance / Off-Peak / Anytime: flexibility, refundability, change fees, break of journey</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;"><code>railcards.md</code></td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">Railcard types, discounts, eligibility, minimum fares, time restrictions</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;"><code>delay-repay.md</code></td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Delay bands and compensation percentages, claim window, evidence, payment methods</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;"><code>luggage-and-accessibility.md</code></td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">Luggage allowance, bicycles, assisted travel booking, wheelchair spaces</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;"><code>ticket-validity.md</code></td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Validity windows, routing restrictions, peak definitions, split ticketing</td></tr>
+    </table>
+    <p style="margin:12px 0 0 0;"><strong>Implementation:</strong> an <strong>Amazon Bedrock MANAGED Knowledge Base</strong>, attached to the same AgentCore Gateway as the MCP servers through the built-in <code>bedrock-knowledge-bases</code> connector. MANAGED means Bedrock owns the vector store, so there is no OpenSearch collection or Aurora cluster to provision, scale or pay for while idle &mdash; and it is a hard requirement, because the gateway connector supports managed knowledge bases only. The five markdown files are ingested <strong>inline</strong> via a CUSTOM data source, straight from the repo, with no S3 staging bucket for content.</p>
+    <p style="margin:8px 0 0 0;">The connector exposes <strong>two</strong> tools: <code>Retrieve</code> (one hybrid search, returning passages with sources) and <code>AgenticRetrieveStream</code> (multi-step planning with a synthesised, citation-backed answer). Cedar grants the orchestrator <strong>only <code>Retrieve</code></strong> &mdash; fast, cheap and deterministic, which is what a scripted demo wants. Denying <code>AgenticRetrieveStream</code> is a second illustration of per-tool control, here capping cost and latency rather than protecting data. The knowledge base id never reaches the agent; the gateway binds it, so swapping or scaling the knowledge base changes no agent code.</p>
+    <p style="margin:8px 0 0 0;"><strong>Local fallback:</strong> with <code>TRAVEL_RUN_MODE=local</code> the same five documents are chunked, embedded with Titan and cached to a JSON file, retrieved by cosine similarity in process. The agent-facing interface is identical, so the demo still runs on a laptop with nothing provisioned.</p>
+  </div>
+
+  <div style="background:#dff0e3; border:1px solid #9ccfb0; border-left:6px solid #1b7a46; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#14562f;">Why the KB moved OFF the orchestrator.</strong> An earlier revision kept it on the router, on the reasoning that a policy question resolves in one model turn and wrapping a lookup in an agentic loop costs a whole extra inference. That reasoning is sound on latency and wrong on ownership: it made Tier 1 a <em>domain participant</em>, holding rail-specific knowledge and needing a rail-specific prompt, so a platform team could not own the router and hand new domains to other teams. The knowledge base now belongs to the <strong>Policy Advisor</strong>, a Tier-2 agent like any other. The cost is one extra A2A hop on policy questions; the gain is a router whose only job is routing. When the organisational boundary and the latency argument disagree, the organisational boundary is the one that compounds.
+  </div>
+
+  <!-- ===== IDENTITY ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">8. Identity and authorization chain</h2>
+  <p>Every hop authenticates, and the per-agent identity is what makes the tool isolation in &sect;5 enforceable rather than advisory.</p>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:30%;">Hop</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Mechanism</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Traveller &rarr; Train Travel Agent</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Runtime inbound auth &mdash; SigV4 (IAM)</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Orchestrator &rarr; sub-agents (A2A)</td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>SigV4</strong>, signed with the orchestrator's own IAM execution role. Each sub-agent runtime keeps the default IAM inbound auth, and the orchestrator's role grants <code>bedrock-agentcore:InvokeAgentRuntime</code> on only the two sub-agent runtimes.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Sub-agent &rarr; sub-agent</td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Does not exist.</strong> No sub-agent role grants <code>InvokeAgentRuntime</code> on a peer, so the topology is enforced by IAM and not merely by convention. A request needing two capabilities is fanned out by the router.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Two IAM details that bite</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">An A2A caller needs <strong>two</strong> actions, not one: <code>bedrock-agentcore:InvokeAgentRuntime</code> <em>and</em> <code>bedrock-agentcore:GetAgentCard</code>, because the client reads the agent card before it can send a task. Missing the second gives a 403 on <code>/.well-known/agent-card.json</code> that looks like an invoke failure. And the invoke is authorized against the <strong>endpoint-qualified</strong> ARN <code>runtime/&lt;id&gt;/runtime-endpoint/&lt;qualifier&gt;</code>, so a policy listing only the bare runtime ARN denies it.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Sub-agent &rarr; Gateway (MCP)</td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>SigV4 under each sub-agent's own IAM execution role</strong> &mdash; that role ARN becomes the Cedar principal (<code>AgentCore::IamEntity</code>). One role per sub-agent is mandatory: a shared role would be indistinguishable to Cedar and the per-agent filtering below would be unenforceable.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Inside the Gateway</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Cedar policy engine, default-deny &mdash; roll out in <code>LOG_ONLY</code>, inspect decisions, then <code>ENFORCE</code></td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Gateway &rarr; MCP servers</td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>IAM / SigV4</strong> via the gateway service role &mdash; available because the MCP servers run on AgentCore Runtime, which natively verifies SigV4</td></tr>
+    </tbody>
+  </table>
+  <div style="background:#dff0e3; border:1px solid #9ccfb0; border-left:6px solid #1b7a46; border-radius:9px; padding:14px 20px; margin-bottom:14px;">
+    <strong style="color:#14562f;">A deliberate simplification worth calling out.</strong> Because the MCP servers sit on AgentCore Runtime rather than behind a load balancer, outbound auth can be <strong>IAM/SigV4</strong> &mdash; no OAuth client or API key to provision for the tool hop. Had we put them on ECS behind an ALB, SigV4 would not be an option (an ALB cannot verify SigV4 signatures) and we would have needed OAuth client-credentials or an API key per target. Inbound is IAM too, so this build is <strong>IAM end to end</strong>: no user pool, no token endpoint, and no client secret stored anywhere. Note that <code>mcpServer</code> targets need an explicit <code>iamCredentialProvider</code> with <code>service: bedrock-agentcore</code> &mdash; <code>credentialProviderType</code> alone is not enough, unlike Lambda or API Gateway targets.
+  </div>
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong>Not in the demo, required in production:</strong> <em>per-user</em> scoping. Today the Support agent's identity authorises the tool call, so it could in principle retrieve any booking. Production would use <strong>on-behalf-of token exchange</strong> so the exchanged token carries both the traveller's and the agent's identity, letting Ticket Operations enforce &ldquo;this traveller, this booking&rdquo; itself. Likewise, <code>change_or_cancel_ticket</code> and <code>claim_delay_repay</code> are irreversible and money-moving: the Lens calls for <strong>human-in-the-loop confirmation</strong> on exactly these, which we surface as an explicit confirmation turn rather than protocol-level enforcement.
+  </div>
+
+  <!-- ===== OBSERVABILITY ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">9. Observability &mdash; and how it is actually switched on</h2>
+
+  <div style="background:#fdeaea; border-left:6px solid #c0392b; border-radius:8px; padding:16px 20px; margin-bottom:20px;">
+    <div style="font-weight:700; color:#8d2a1d; margin-bottom:6px;">The failure mode that cost the most time</div>
+    <p style="margin:0 0 8px 0;">Shipping <code>aws-opentelemetry-distro</code> in the package and setting <code>OTEL_PYTHON_DISTRO</code> / <code>OTEL_PYTHON_CONFIGURATOR</code> is <strong>not enough</strong>. Those variables are read only by the OpenTelemetry <em>launcher</em> (<code>opentelemetry-instrument</code>), and a direct-code deployment has no shell wrapper to run it. The library sat in the zip, unused: HTTP spans only, no model spans, no token counts &mdash; and the Bedrock AgentCore Observability dashboard reported <strong>0 agents</strong> while everything else looked healthy.</p>
+    <p style="margin:0;">The launcher does nothing more than prepend its own directory to <code>PYTHONPATH</code> and re-exec. So the deploy does that directly, and Python imports that directory&rsquo;s <code>sitecustomize.py</code> at interpreter startup:</p>
+    <div style="background:#2b2b2b; color:#f3f3f3; border-radius:6px; padding:10px 14px; margin-top:10px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; overflow-x:auto;">PYTHONPATH=/var/task/opentelemetry/instrumentation/auto_instrumentation:/var/task</div>
+  </div>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <ul style="margin:0; padding-left:20px;">
+      <li><strong>What the launcher brings.</strong> Loading <code>sitecustomize</code> activates the AWS distro, the AWS configurator and every matching instrumentor. That is what produces the spans the dashboard reads &mdash; <code>amazon.opentelemetry.distro.instrumentation.langchain</code> (agent turns, <code>gen_ai.*</code> attributes, token counts), <code>opentelemetry.instrumentation.botocore.bedrock-runtime</code> (the Bedrock <code>Converse</code> calls), <code>amazon.opentelemetry.distro.instrumentation.mcp</code> (tool calls), plus httpx and Starlette for the A2A hops. Verified in <code>aws/spans</code>: <code>gen_ai.usage.input_tokens=4384</code>, <code>output_tokens=150</code>, <code>aws.genai.token_count_total=4534</code>.</li>
+      <li><strong>Adopt, never compete.</strong> <code>observability.adot_already_configured()</code> detects that the launcher ran and adopts the pipeline. OpenTelemetry refuses to override an existing <code>TracerProvider</code>, so building a second one would leave the richer ADOT pipeline in place while our exporter silently sent nothing. The hand-rolled provider remains as the local / non-AWS fallback.</li>
+      <li><strong><code>aws.log.group.names</code> must be the real log group</strong> &mdash; <code>/aws/bedrock-agentcore/runtimes/&lt;runtimeId&gt;-DEFAULT</code>. The runtime ID is assigned at creation, so it cannot be derived from the name; <code>deploy.py</code> reads it from the existing runtime and performs one corrective update for a brand-new one. This attribute is how CloudWatch indexes telemetry under the AgentCore dashboard: point it at a log group that does not exist and spans still arrive in <code>aws/spans</code>, but are never tied to the runtime. <code>deploy.py verify</code> now asserts this for all six runtimes.</li>
+      <li><strong><code>service.name</code> must match the runtime name</strong>, so the deployed environment value wins over the readable label the servers pass locally.</li>
+      <li><strong>OTLP log export is off</strong> (<code>OTEL_LOGS_EXPORTER=none</code>). It is redundant: AgentCore already captures stdout into the runtime log group, and the dashboard is driven by spans. Left on it ships a duplicate copy of the logs and rejects every batch with <code>400 &hellip; The specified log stream does not exist</code> once per second unless a fixed stream is pre-created.</li>
+      <li><strong>Two variables deliberately unset.</strong> <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code> &mdash; the distro derives the regional X-Ray endpoint itself and only via <code>setdefault</code>, so hardcoding one overrides it. <code>OTEL_EXPORTER_OTLP_TRACES_HEADERS</code> &mdash; redirecting spans to your own log group additionally needs a CloudWatch Logs resource policy letting <code>xray.amazonaws.com</code> call <code>logs:PutLogEvents</code>, without which they are silently lost.</li>
+      <li><strong>Account-wide prerequisite.</strong> CloudWatch <strong>Transaction Search</strong> must be enabled and the X-Ray trace-segment destination pointed at CloudWatch Logs, or the OTLP traces endpoint rejects the spans. <code>deploy.py preflight</code> reports it rather than changing it.</li>
+      <li><strong>One trace, many spans.</strong> A disruption query crossing orchestrator &rarr; Support &rarr; Planner &rarr; gateway &rarr; two MCP servers arrives as <em>one</em> trace. A composite propagator accepts and emits both W3C <code>traceparent</code> and X-Ray headers, because a mixed-propagator mesh is the usual reason a multi-agent trace fragments.</li>
+      <li><strong>Privacy note.</strong> Vended gateway logs can include request and response bodies &mdash; traveller profile data here. Scope access and retention deliberately, even with synthetic data.</li>
+    </ul>
+  </div>
+
+  <h3 style="color:#0b2e59; font-size:16px; margin-bottom:8px;">Measured latency &mdash; four sweeps against the deployed runtimes</h3>
+  <p style="margin-top:0;">Attributed from OpenTelemetry spans across all 31 evaluation cases, ranges spanning four sweeps and both runners. Each figure is a <strong>union of span intervals</strong>, so nested spans count once and the rows deliberately <strong>do not sum</strong> to the turn total.</p>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead><tr style="background:#0b3d91; color:#fff;">
+      <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Layer</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Mean</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Cases with data</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Note</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>A2A / HTTP wait</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">22&ndash;24s</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">12 of 31</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">router blocked on a sub-agent; orchestrator cases only</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Agent turn</strong> (LangGraph loop)</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">17&ndash;18s</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">31 of 31</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">encloses the model and tool spans below</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Model inference</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">~11s</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">31 of 31</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Bedrock Converse, instrumented directly</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;">Tool calls via the gateway</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">~6s</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">26 of 31</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">dominated by knowledge-base retrieval, not policy evaluation</td></tr>
+    </tbody>
+  </table>
+  <div style="background:#d6e4fb; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#0b2e59;">Two conclusions worth stating out loud:</strong> warm gateway calls are 20&ndash;140&nbsp;ms, so <strong>Cedar authorization adds no measurable latency</strong> &mdash; the per-tool policy layer is free at runtime. And end-to-end latency is dominated by the fan-out, not the plumbing: per-case <strong>p50 14&ndash;15.5s, p95 43&ndash;46s, p99 47&ndash;55s</strong>, where a direct sub-agent call is 8&ndash;20s but a router turn that delegates to two sub-agents runs 35&ndash;55s. Cold containers add roughly 8s per sub-agent and 4&ndash;5s per MCP runtime on top. Client read timeouts must allow for the upper bound: botocore defaults to 60s, which is <em>below</em> it, so both <code>invoke.py</code> and the frontend proxy set <code>read_timeout=300</code> with retries disabled.
+  </div>
+
+  <!-- ===== SYNTHETIC DATA ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">10. Synthetic data design</h2>
+  <p>All data is fictional. Tool responses are shaped like plausible rail API payloads so agent reasoning is realistic, but nothing connects to a real retailer, operator or payment system.</p>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:26%;">Fixture</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Shape and coverage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Travellers</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">3 profiles with different railcards (Two Together, 16&ndash;25, none) and loyalty tiers, so fare and refund maths visibly differ between them. One has accessibility requirements.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Stations &amp; routes</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">8 major stations, a handful of realistic corridors (London&ndash;Manchester, London&ndash;Edinburgh, Manchester&ndash;Leeds) with plausible journey times, operators and change patterns.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Services &amp; fares</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Timetabled departures across the day with Advance / Off-Peak / Anytime pricing in two classes. Advance is cheap and non-refundable; Anytime is expensive and fully flexible &mdash; the contrast drives the policy conversation.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Bookings</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">4 existing bookings deliberately spanning the interesting cases: a refundable Anytime, a non-refundable Advance, one on a <strong>cancelled</strong> service, and one already delayed past the compensation threshold.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Disruption state</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">A seeded cancellation on the 07:15 London&ndash;Manchester and a 47-minute delay on another service, so the disruption and compensation demos are deterministic rather than chance.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Policy documents</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">5 markdown files (&sect;7) written to be internally consistent with the fare and booking fixtures &mdash; so the KB answer and the tool result never contradict each other on stage.</td></tr>
+    </tbody>
+  </table>
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong>The design rule for the fixtures:</strong> every demo beat must be <strong>deterministic</strong>. Nothing is randomised, no response depends on the current clock beyond a fixed reference date, and the seeded disruption is always present. A live demo should never rely on luck.
+  </div>
+
+  <!-- ===== RUNNING IT ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">11. Running it &mdash; two modes</h2>
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <div style="font-weight:700; color:#0b2e59; margin-bottom:6px;">Before either mode &mdash; environment setup</div>
+    <p style="margin:0 0 8px 0;">Python <strong>3.12</strong>. Create the virtual environment and install the pinned dependencies <em>before</em> deploying any change: the packager vendors dependencies out of <code>requirements.txt</code>, so the local environment and the deployed artifact must agree.</p>
+    <div style="background:#2b2b2b; color:#f3f3f3; border-radius:6px; padding:12px 16px; margin:10px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; overflow-x:auto; white-space:pre;">uv venv --python 3.12 .venv
+uv pip install -r requirements.txt
+
+# or: python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+
+.venv/bin/python -c "import langgraph, a2a, mcp, boto3, amazon.opentelemetry.distro; print('ok')"</div>
+    <p style="margin:0;">Three pins are deliberate: <code>mcp==1.30.0</code> and <code>a2a-sdk==0.3.26</code> (the 2.x and 1.x lines changed their client APIs), and <code>aws-opentelemetry-distro==0.21.0</code>, which supplies the X-Ray ID generator, the SigV4 span exporter <em>and</em> the LangChain/MCP agentic instrumentation that CloudWatch GenAI Observability reads.</p>
+  </div>
+  <div style="display:block; margin-bottom:14px;">
+    <table style="width:100%; border-collapse:separate; border-spacing:12px 0;">
+      <tr>
+        <td style="width:50%; background:#dff0e3; border:1px solid #9ccfb0; border-radius:9px; padding:16px; vertical-align:top;">
+          <div style="font-weight:700; color:#14562f; font-size:15px;">Local mode &mdash; the demo safety net</div>
+          <ul style="margin:8px 0 0 0; padding-left:19px; font-size:13.5px;">
+            <li>Three MCP servers as local processes over streamable HTTP</li>
+            <li>Three LangGraph agents in-process, A2A over localhost</li>
+            <li>Tool access filtered by a <strong>local policy shim</strong> that mirrors the Cedar statements</li>
+            <li>Bedrock is the only AWS dependency (model + embeddings)</li>
+            <li>One command, no deploy, nothing to break on the day</li>
+          </ul>
+        </td>
+        <td style="width:50%; background:#eaf1fb; border:1px solid #9ec2f0; border-radius:9px; padding:16px; vertical-align:top;">
+          <div style="font-weight:700; color:#0b2e59; font-size:15px;">AgentCore mode &mdash; the real thing</div>
+          <ul style="margin:8px 0 0 0; padding-left:19px; font-size:13.5px;">
+            <li>Six AgentCore Runtimes: 3 agents (A2A protocol) + 3 MCP servers (MCP protocol)</li>
+            <li>One Gateway, <strong>four</strong> targets &mdash; three <code>mcpServer</code> plus a managed-knowledge-base connector &mdash; SigV4 outbound</li>
+            <li><strong>Seven</strong> IAM roles: one per agent (3), plus the shared MCP runtime role, the gateway role, the knowledge-base role and the memory role</li>
+            <li>Policy engine with <strong>three</strong> Cedar policies (one per agent), <code>LOG_ONLY</code> &rarr; <code>ENFORCE</code></li>
+            <li>Transaction Search + the ADOT launcher on <code>PYTHONPATH</code> for the unified trace (&sect;9)</li>
+            <li>AgentCore Memory on the orchestrator, and six Parameter Store entries read at use time</li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+  </div>
+  <div style="background:#ffe9e9; border-left:6px solid #c0392b; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#8e2b20;">Sequencing recommendation.</strong> Build and rehearse in <strong>local mode</strong> first. Deploy to AgentCore as a second pass, and treat the deployed environment as the <em>preferred</em> demo path with local as the fallback you can switch to in seconds. Standing up six runtimes, a gateway and Cedar for the first time hours before a customer session is the single largest risk in this plan &mdash; the local path removes it entirely.
+  </div>
+
+  <!-- ===== BROWSER UI ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">12. Testing through the browser UI <span style="font-weight:400; font-size:14px; color:#5a7a9e;">&mdash; optional</span></h2>
+  <p>A small static page plus a <strong>loopback signing proxy</strong>, for demonstrating the chat experience rather than reading CLI output. Entirely optional: every capability is reachable from <code>invoke.py</code> and <code>demo.py</code>.</p>
+  <div style="background:#2b2b2b; color:#f3f3f3; border-radius:6px; padding:12px 16px; margin:10px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; overflow-x:auto; white-space:pre;">source deploy/agentcore/.env          # TRAVEL_RUN_MODE=agentcore
+.venv/bin/python frontend/server.py
+# open http://127.0.0.1:8000</div>
+  <p>Set <code>TRAVEL_RUN_MODE=local</code> to point the same page at the local stack on <code>127.0.0.1:8090</code> instead.</p>
+
+  <div style="text-align:center; margin:18px 0;">
+    <img src="images/sample-ui.png" alt="Train Travel Agent browser UI" style="max-width:100%; border:1px solid #c3d4ec; border-radius:10px; box-shadow:0 2px 10px rgba(11,46,89,0.14);">
+  </div>
+
+  <h3 style="color:#0b2e59; font-size:16px; margin:22px 0 8px;">The Evaluation tab</h3>
+  <p style="margin-top:0;">The same page carries an evaluation console, so a reviewer can trigger a scored run and read the comparison without leaving the demo.</p>
+  <div style="text-align:center; margin:14px 0;">
+    <img src="images/eval-screen.png" alt="The Evaluation tab, mid-run" style="max-width:100%; border:1px solid #c3d4ec; border-radius:10px; box-shadow:0 2px 10px rgba(11,46,89,0.14);">
+    <div style="text-align:center; font-size:12px; color:#5a7a9e; margin-top:6px;">A completed sweep against the deployed runtimes &mdash; <code>Strands Evals (all, agentcore)</code>, 31 cases at 16 threads, finished in 706.7s: 129/167 assertions, 0 errors, p50 14.1s. The <strong>Target</strong> selector reads <code>AgentCore runtimes (full breakdown)</code> and both headline cards show <code>mode agentcore</code> with responsible AI at 0.90.</div>
+  </div>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead><tr style="background:#0b3d91; color:#fff;">
+      <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;" style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:24%;">Control</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">What it does</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Scope</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Which cases to run, chosen from a fixed list: everything (31), a 4-case quick smoke, responsible-AI only, router end-to-end, sub-agents only, or one named agent.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Target</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>Local stack</code> or <code>AgentCore runtimes</code>, defaulting to the mode the frontend itself is running in &mdash; so the tab cannot quietly score localhost while the badge claims otherwise. Only the AgentCore target produces the per-component span breakdown.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Threads</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Concurrency, 4&ndash;16. Material: against the deployed runtimes the full 31-case sweep takes about <strong>3.6 min (LangSmith) and 16 min (Strands) at 12 threads</strong>, falling to <strong>2.7 min and 11.8 min at 16</strong>. Strands fans each case out to more judges. Lower thread counts are disproportionately slower.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Evaluate using LangSmith</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Runs the LangSmith suite entirely offline &mdash; <code>upload_results=False</code>, so no account and no API key.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Evaluate with Strands Evals</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Runs the same cases through Strands Evals. One job at a time; both buttons disable while a run is in flight.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Generate report &amp; compare</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Rebuilds the dashboard from whatever results exist and reports what it wrote.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Job panel</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">A spinner that resolves to a tick or a cross, elapsed time, and the runner&rsquo;s <strong>live log</strong> &mdash; reachability probe, each case with its latency, then assertion counts, pass rate, mean score, errors and latency percentiles.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Headline cards</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Pass rate, mean score, responsible-AI score, p50 and errors per runner. Across two sweeps against the deployed runtimes that is 76.6&ndash;80.2% / 0.82&ndash;0.83 for LangSmith against 77.2&ndash;78.4% / 0.77&ndash;0.78 for Strands, both at <strong>0.90</strong> responsible AI in the latest pair. <code>Resp. AI</code> reads <code>&ndash;</code> only when the chosen scope contains no responsible-AI cases.</td></tr>
+    </tbody>
+  </table>
+
+  <div style="background:#fdeaea; border-left:6px solid #c0392b; border-radius:8px; padding:15px 20px; margin-bottom:22px;">
+    <div style="font-weight:700; color:#8d2a1d; margin-bottom:6px;">These buttons execute local commands</div>
+    <p style="margin:0;">That is a command-execution surface and it is constrained accordingly: the interpreter and script paths are module constants, <code>runner</code> and <code>scope</code> are resolved against fixed allowlists <em>before</em> any process exists, the command is built as an argv <strong>list with no shell</strong>, concurrency is clamped, and only one job may run. Verified by rejecting path traversal, shell metacharacters, flag injection and unknown runners &mdash; all 400. What remains true is that this is an unauthenticated endpoint that runs commands and spends money on Bedrock, which is acceptable <em>only</em> because the server binds <code>127.0.0.1</code>. Use <code>ssh -L</code> to show it to someone; do not widen the bind.</p>
+  </div>
+
+  <h3 style="color:#0b2e59; font-size:16px; margin:22px 0 8px;">The chat tab</h3>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead><tr style="background:#0b3d91; color:#fff;">
+      <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;" style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:24%;">Field</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">What it is, and why it is on screen</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>AgentCore Runtime</strong> badge</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The resolved <code>TRAVEL_RUN_MODE</code>. Reads <em>Local stack</em> when pointed at loopback, so you always know which target answered &mdash; the deployed runtime or a process on your laptop.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>us-west-2</strong> badge</td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The region the proxy is signing SigV4 for.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Travelling as</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The <code>actor_id</code> sent with every request, populated from <code>fixtures/travellers.json</code>. This is the <strong>memory partition</strong>: switch traveller and you get a different person&rsquo;s history, summaries and preferences. Validated server-side by <code>memory.resolve_actor()</code>; an unknown value is rejected with 400. It is also the seam to replace for JWT-derived identity.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Conversation</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The last three sessions for the selected traveller, from <code>GET /sessions</code>. Selecting one reuses its <code>session_id</code>, so the orchestrator loads the prior turns as short-term memory &mdash; this is how you demonstrate recall rather than assert it.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Start new</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Generates a fresh <code>session_id</code> (a UUID, which also satisfies the API&rsquo;s 33-character minimum) and clears the transcript.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>memory on &middot; short-term + long-term</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Memory status. <em>short-term</em> is AgentCore Memory events for this session; <em>long-term</em> is the summary and user-preference records, extracted <strong>asynchronously</strong>. Reads <em>memory off</em> when <code>TRAVEL_MEMORY_ID</code> is unset.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Prompt chips</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The five demo beats, each labelled with what it exercises &mdash; <em>routed to the Policy Advisor</em>; <em>delegates to the Planner</em>; <em>policy + action, both fanned out by the router</em>; <em>expect an honest refusal</em>; <em>Delay Repay, 14.99 GBP</em>. The labels let you narrate the architecture while the model is still thinking.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Footer</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Session state plus a standing reminder that all travellers, bookings, fares and policies are synthetic.</td></tr>
+    </tbody>
+  </table>
+
+  <div style="background:#d6e4fb; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#0b2e59;">Security shape:</strong> the page never holds AWS credentials. The browser talks to the proxy over plain HTTP on <code>127.0.0.1</code>; the proxy performs SigV4 with your own credentials and calls <code>InvokeAgentRuntime</code>. It binds loopback only and has no authentication of its own &mdash; to show it from another machine, forward the port (<code>ssh -L 8000:127.0.0.1:8000</code>) rather than widening the bind. Both transport paths use a 300s timeout, because botocore&rsquo;s 60s default is below the cost of a full fan-out turn with cold starts.
+  </div>
+
+  <!-- ===== EVALUATION ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">13. Evaluating the agents</h2>
+  <p>Structural tests prove nothing is wired wrong. They cannot tell you whether an agent <em>reasons</em> well, refuses what it should, or quietly invents a refund rule. That needs scoring, and scoring an agent means judging free text &mdash; so the judge is itself a model.</p>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:18px 22px; margin-bottom:14px;">
+    <ul style="margin:0; padding-left:20px;">
+      <li><strong>Two SDKs, deliberately.</strong> <code>strands-agents-evals</code> and LangSmith run offline over the same 31 cases. A single judge is one model&rsquo;s opinion; two judges disagreeing is a signal worth reading. Across two sweeps each against the deployed runtimes they scored <strong>76.6&ndash;80.2%</strong> (LangSmith) and <strong>77.2&ndash;78.4%</strong> (Strands) overall, while agreeing to three decimal places at <strong>0.897</strong> on responsible AI in the latest pair &mdash; which is itself a finding about evaluator stability.</li>
+      <li><strong>Each tier is evaluated on its own terms.</strong> Sub-agents are scored <em>directly over A2A</em>, the router <em>end to end</em>. That matters operationally: you can score one sub-agent after changing it without standing up the whole system or freezing a staging environment.</li>
+      <li><strong>Quality and responsible AI are separate categories.</strong> Quality: correctness, faithfulness, helpfulness, relevance, instruction-following, plus a ground-truth rubric bound to the fixtures. Responsible AI: harmfulness, stereotyping and appropriate refusal, over 8 adversarial probes &mdash; prompt injection, attempted extraction of another traveller&rsquo;s data, a request for card details, out-of-domain refusal, an attempt to falsify a compensation claim, and a leading question inviting a confidently wrong policy answer.</li>
+      <li><strong>Ground truth comes from the fixtures</strong>, so the assertions are real rather than vibes: &pound;24.64 for the discounted Advance, &pound;14.99 Delay Repay, <code>AW0715-20261106</code> always cancelled.</li>
+      <li><strong>Zero changes to application code.</strong> The subsystem has its own virtual environment and its own pinned dependencies, and the frontend shells out to that interpreter rather than importing it. Nothing in <code>evaluation/</code> reaches the deployment package &mdash; the packager vendors <code>requirements.txt</code>, and a judge model has no business shipping to production.</li>
+    </ul>
+  </div>
+
+  <div style="text-align:center; margin:16px 0;">
+    <img src="images/eval-dashboard.png" alt="The generated evaluation dashboard" style="max-width:100%; border:1px solid #c3d4ec; border-radius:10px; box-shadow:0 2px 10px rgba(11,46,89,0.14);">
+    <div style="text-align:center; font-size:12px; color:#5a7a9e; margin-top:6px;">An AgentCore sweep pair in the generated dashboard: 31 cases and 167 assertions per runner, zero errors, both cards reading <code>mode agentcore</code>, with the three responsible-AI rows (<code>harmfulness</code>, <code>refusal</code>, <code>stereotyping</code>) tagged <strong>RAI</strong>. This capture is the earlier of two sweep pairs (77% / 78%); the Evaluation tab above shows the later one (80% / 77%).</div>
+  </div>
+
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead><tr style="background:#0b3d91; color:#fff;">
+      <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;" style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:24%;">Dashboard section</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Contents</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>1. Headline</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">One card per runner: source file, mode, judge model, pass rate, mean score, case and assertion counts, errors, and the evaluator list that actually fired. Both show nine here because a full sweep exercises the safety evaluators; a scope without responsible-AI cases produces a shorter list.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>2. Metric comparison</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The side-by-side table: mean judge score per metric, with a bar and the assertion count behind it. Where the two SDKs name an equivalent metric differently (<code>responserelevance</code> vs <code>relevance</code>) the rows are grouped so the comparison lines up; original names stay in the per-case table. <strong>RAI</strong>-tagged rows are responsible-AI checks.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>3. Breakdowns</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Per agent under test, per tier, per category &mdash; how you see which agent is dragging a headline number down.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>4. Performance</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">P50/P95/P99 with min/max/mean, the per-component breakdown when spans were available, token totals and a cost basis. Unmeasured layers are <strong>named, not estimated</strong>, and a warning appears when percentiles came from too few samples to mean anything.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>5. Per-case detail</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Every case, both runners, each expandable to the judge&rsquo;s full reasoning and the agent&rsquo;s actual output. Where you confirm a failure is real.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>6. Run notes</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Caveats the runners recorded about their own run.</td></tr>
+    </tbody>
+  </table>
+
+  <div style="background:#eaf1fb; border:1px solid #c3d4ec; border-radius:9px; padding:16px 20px; margin-bottom:14px;">
+    <div style="font-weight:700; color:#0b2e59; margin-bottom:6px;">What this run shows, beyond the headline</div>
+    <ul style="margin:0; padding-left:20px;">
+      <li><strong><code>faithfulness</code> splits the judges hardest: LangSmith 0.75&ndash;0.77, Strands 0.36&ndash;0.52.</strong> The gap is not noise &mdash; it is the two SDKs disagreeing about what &ldquo;grounded in the retrieved context&rdquo; means, Strands&rsquo; five-point semantic scale being markedly stricter. This is the case for two judges in one line: a single runner would have reported faithfulness as either acceptable or alarming, and you would have believed it.</li>
+      <li><strong>The per-agent breakdown localises the weakness.</strong> <code>journey_planner</code> passes only <strong>0.47&ndash;0.56</strong> and is the worst agent in <em>every</em> sweep run so far, against <code>policy_advisor</code> 0.83&ndash;1.00, <code>journey_support</code> 0.68&ndash;0.85 and <code>train_travel_agent</code> 0.84&ndash;0.86. Two independent judges ranking the same agent worst, repeatedly, is a finding about the agent rather than judge variance &mdash; which is where to look, rather than at the aggregate.</li>
+    </ul>
+  </div>
+
+  <div style="background:#d6e4fb; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#0b2e59;">What it found, which is the point:</strong> one case fails in <em>both</em> judges &mdash; asked for another traveller&rsquo;s profile on the strength of an unverified &ldquo;I&rsquo;m booking on their behalf&rdquo;, the Journey Planner disclosed that traveller&rsquo;s name, email, railcard and saved journeys. Cedar cannot close this: <code>get_traveller_profile</code> is legitimately granted to the Planner, and the missing control is <em>which row</em> &mdash; which needs on-behalf-of token exchange or a tool-level check that the requested traveller matches the session actor. &sect;8 described that gap as a production requirement. The evaluation turned it from an assertion into a reproducible exploit, which is exactly what this layer is for.
+  </div>
+
+  <!-- ===== DEMO SCRIPT ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">14. Demo script</h2>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:4%;">#</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:28%;">Say this</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">What happens, and the point it makes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>1</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">&ldquo;Can I change an Advance ticket?&rdquo;</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Train Travel Agent answers from the knowledge base. <strong>No delegation, one model turn.</strong> Point: not every capability deserves an agent.</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>2</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">&ldquo;Find me a train from London to Manchester Friday morning &mdash; I have a Two Together Railcard.&rdquo;</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Orchestrator &rarr; Planner over A2A. Planner reads the railcard from the <strong>shared</strong> profile server, searches services, prices fares with the discount applied, books. Point: A2A task delegation, and the shared server earning its place.</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>3</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">&ldquo;My 07:15 to Manchester is cancelled.&rdquo;</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Router &rarr; Policy Advisor (the entitlement rule) <em>and</em> Router &rarr; Support (the booking and the rebooking), joined into one answer. Support reports that a service search is needed; the <strong>router</strong> obtains it from the Planner rather than Support calling a peer. Follow with &ldquo;can I claim compensation?&rdquo; &rarr; <code>claim_delay_repay</code>. Point: fan-out at Tier 1, so Tier 2 stays a set of leaves.</td>
+      </tr>
+      <tr style="background:#dff0e3;">
+        <td style="padding:9px 12px; border:1px solid #9ccfb0;"><strong>4</strong></td>
+        <td style="padding:9px 12px; border:1px solid #9ccfb0;">Switch to a terminal.</td>
+        <td style="padding:9px 12px; border:1px solid #9ccfb0;"><strong>The security beat.</strong> Call <code>tools/list</code> with the Planner's token, then the Support token, and diff: six tools each, three shared, three different. Then have Support attempt <code>book_ticket</code> &mdash; Cedar denies it with <em>&ldquo;No policy applies to the request (denied by default)&rdquo;</em>. Point: isolation by policy, on one shared gateway, no duplicated servers.</td>
+      </tr>
+      <tr style="background:#f5f9fe;">
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;"><strong>5</strong></td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Open CloudWatch GenAI Observability.</td>
+        <td style="padding:9px 12px; border:1px solid #c3d4ec;">Show beat 3 as <strong>one trace</strong> spanning orchestrator, both sub-agents, the gateway and two MCP servers. Point: the call graph is observable, not a black box.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px; color:#3c5a7d; margin-bottom:26px;">Beats 1&ndash;3 run in either mode. Beats 4 and 5 require AgentCore mode, since they depend on real Cedar evaluation and real trace emission &mdash; a further reason to get the deployment working ahead of time rather than relying on local alone.</p>
+
+  <!-- ===== GOTCHAS ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">15. Implementation notes that are not visible in the code</h2>
+  <p>Each of these failed <strong>silently or misleadingly</strong> during the build. They are the reason the test suite and <code>deploy.py verify</code> are shaped the way they are, and they are the first things to check when something behaves oddly.</p>
+
+  <table style="width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13.5px;">
+    <thead><tr style="background:#0b3d91; color:#fff;">
+      <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;" style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:30%;">Trap</th><th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">Detail</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>A callable model does not get tools bound</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>create_react_agent</code> binds tools itself <em>only</em> for a static model. We pass a callable so the model id is re-read each turn, and on that path LangGraph uses the return value verbatim &mdash; so the callable must do <code>model.bind_tools(tools)</code>. Omit it and there is no error: the model never sees the tool schemas and, because the prompt still lists them, it <em>imitates</em> the provider&rsquo;s function-call syntax as prose. Guarded by <code>test_tools_are_bound_to_the_model</code>.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong><code>GetAgentCard</code> is a separate IAM action</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">An A2A client fetches <code>/.well-known/agent-card.json</code> before it can send anything, which needs <code>bedrock-agentcore:GetAgentCard</code> &mdash; not <code>InvokeAgentRuntime</code>. Without it delegation fails as a <strong>403 on the card URL</strong>, which reads like an invoke-permission problem and is not.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Invoke authorizes on the endpoint ARN</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The resource is <code>runtime/&lt;id&gt;/runtime-endpoint/&lt;qualifier&gt;</code>, not the bare <code>runtime/&lt;id&gt;</code>. Confirm with <code>aws iam simulate-principal-policy</code> against both forms before concluding a policy is right.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>AgentCore discards the container&rsquo;s response body</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">A deliberate 400 reaches the caller as an opaque <code>RuntimeClientError &hellip; check your CloudWatch logs</code> &mdash; and if the handler did not log, CloudWatch has nothing either. Every rejection path in the orchestrator therefore logs. The usual cause is a missing <code>actor_id</code>, which is mandatory whenever memory is enabled.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Environment beats Parameter Store</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Resolution is env &rarr; SSM &rarr; default, so the deployed runtimes must <em>not</em> set the dynamic values &mdash; an env var would pin them to deploy-day values and make the parameter inert. The only A2A URL a runtime sets is its own, for its agent card.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>The agent card must advertise the deployed URL</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">A card saying <code>0.0.0.0:9000</code> resolves fine and then every delegation fails, because A2A clients route by <code>card.url</code>. The URL derives from the runtime ARN, which does not exist until creation &mdash; hence a two-phase environment update.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Two naming conventions in one API</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Gateways and targets allow hyphens (<code>([0-9a-zA-Z][-]?){1,48}</code>); policy engines, policies, runtimes and memory do not (<code>[A-Za-z][A-Za-z0-9_]{0,47}</code>). Hence <code>PREFIX</code> and <code>PREFIX_U</code>; <code>preflight</code> validates all 16 names against patterns read from the botocore model.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Cedar rejects bare protocol actions</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The engine parses every action as <code>Target___tool</code>, so <code>initialize</code> and <code>tools/list</code> are rejected outright &mdash; the handshake is permitted implicitly. A published example includes them, but it uses JWT inbound.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Target credential config is not uniform</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>mcpServer</code> and <code>openApiSchema</code> targets <em>require</em> <code>iamCredentialProvider</code>; Lambda, API Gateway, Smithy and <strong>connector</strong> targets must omit it. A wrong shape is a validation error, not a warning.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Managed-KB data source shape</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>type: "MANAGED_KNOWLEDGE_BASE_CONNECTOR"</code> with the connector in <code>connectorParameters</code> &mdash; <em>not</em> the plain <code>type: "CUSTOM"</code> used by self-managed knowledge bases.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Packaging verifies itself</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">An exclusion rule once matched everything and produced a <strong>22-byte zip</strong>; the ARM64 check passed vacuously on an empty set. The packager now fails on zero files, zero native extensions, or a missing entrypoint &mdash; 6 entrypoints and 28 support paths are checked explicitly.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Documented fields that are wrong</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The Memory guide shows <code>conversationalMessage</code>; the real field is <code>conversational</code> with an uppercase role enum and a required <code>eventTimestamp</code>. <code>ListMemories</code> returns no name.</td></tr>
+    </tbody>
+  </table>
+
+  <div style="background:#d6e4fb; border-radius:9px; padding:14px 20px; margin-bottom:26px;">
+    <strong style="color:#0b2e59;">The pattern across all of them:</strong> every one produced a healthy-looking system. A green deploy, HTTP 200, spans in the log group, a confident-sounding answer. The lesson that shaped the tooling is that <em>absence of an error is not evidence of correctness</em> &mdash; so <code>preflight</code> validates names, <code>package</code> inspects its own artifact, <code>agents</code> asserts the config set is complete, and <code>verify</code> checks both Cedar filtering and the observability wiring on every run.
+  </div>
+
+  <!-- ===== BEST PRACTICE ===== -->
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">16. Best practices applied</h2>
+  <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:13.5px;">
+    <thead>
+      <tr style="background:#0b3d91; color:#fff;">
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91; width:30%;">Practice</th>
+        <th style="text-align:left; padding:9px 12px; border:1px solid #0b3d91;">How it shows up here</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Authorise outside agent code</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Cedar at the gateway, evaluated before any tool executes &mdash; so it holds regardless of what the model is persuaded to attempt. Prompt-level restriction is not a control.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Least privilege per agent</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">One identity per agent, one policy statement per agent, six tools visible instead of nine.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Secrets never in the agent</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The gateway holds backend credentials; agents hold none. Here that is the gateway service role signing SigV4 to the MCP runtimes.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Tool catalogue stays small</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Six tools per agent, well inside the range where model tool selection stays accurate. Policy filtering is doing double duty as a context-size control.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Don't create an agent for a lookup</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">The knowledge base is a tool on the orchestrator, not a third sub-agent &mdash; saving a full agentic loop on every policy question.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Protocol per boundary</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">A2A between agents, MCP between agent and tools &mdash; matching the Lens guidance rather than forcing one protocol to do both jobs.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Policy rollout discipline</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;"><code>LOG_ONLY</code> first to observe decisions against real traffic, then <code>ENFORCE</code>. Never enforce an unobserved policy.</td></tr>
+      <tr style="background:#f5f9fe;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>One trace per request</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">W3C trace context propagated across A2A hops so a multi-agent turn is a single trace.</td></tr>
+      <tr style="background:#fff;"><td style="padding:8px 12px; border:1px solid #c3d4ec;"><strong>Deterministic demo fixtures</strong></td><td style="padding:8px 12px; border:1px solid #c3d4ec;">Seeded disruption and fixed reference date, so no beat depends on chance.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="color:#0b2e59; font-size:21px; border-bottom:2px solid #c3d4ec; padding-bottom:8px;">17. Deliberately simplified &mdash; and what production would add</h2>
+  <div style="background:#fff6e6; border-left:6px solid #e08a00; border-radius:9px; padding:16px 20px; margin-bottom:26px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+      <tr style="background:#0b3d91; color:#fff;"><th style="text-align:left; padding:8px 11px; width:34%;">Simplified for the demo</th><th style="text-align:left; padding:8px 11px;">Production would add</th></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Agent identity authorises tool calls</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;"><strong>On-behalf-of token exchange</strong> so the traveller's identity reaches the backend and &ldquo;own bookings only&rdquo; is enforced there</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">Confirmation handled in conversation</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;"><strong>Human-in-the-loop gate</strong> on irreversible tools (refund, cancel, compensation), plus rate limiting</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Orchestrator granted <code>Retrieve</code> only on the knowledge base</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Expose <code>AgenticRetrieveStream</code> as well where multi-part questions justify the extra cost and latency, and attach a Bedrock guardrail through <code>agenticRetrieveConfiguration.policyConfiguration</code></td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">In-memory A2A task store</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;"><strong>Durable task store</strong> &mdash; in-memory will not survive per-session microVMs or instance recycling</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Mock tool responses from fixtures</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Real retailer and operator APIs behind the same MCP tool contracts &mdash; and the mocks stay, as the test double</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">Unconditional Cedar policies</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;"><strong>Parameter-conditional</strong> rules (refund thresholds), plus a RESPONSE interceptor if such tools must also be hidden from listing</td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;">Default Runtime platform version</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#fff;"><strong>Platform V2 snapshot start</strong> for consistent cold starts, plus session affinity on <code>runtimeSessionId</code></td></tr>
+      <tr><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">No evaluation harness</td><td style="padding:7px 11px; border:1px solid #c3d4ec; background:#f5f9fe;">Build-time evals in CI per agent, plus runtime evaluations on live traffic</td></tr>
+    </table>
+    <p style="margin:12px 0 0 0;">Stating these openly is part of the walkthrough. A customer trusts an architecture more when the gaps are named by the presenter than when they find them by asking.</p>
+  </div>
+
+  <div style="color:#6b7a90; font-size:12px; border-top:1px solid #c3d4ec; padding-top:12px;">
+    All travellers, bookings, services, fares and policy documents in this build are synthetic and fictional. No real rail retailer, train operating company, passenger record or payment system is involved. AgentCore evolves quickly &mdash; confirm quotas, target-type support and Region availability against current documentation before adapting this for production use.
+  </div>
+
+</div>
+</body>
+</html>

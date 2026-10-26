@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Train Travel Agent</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+
+  <header class="bar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">&#9679;</span>
+      <div>
+        <h1>Train Travel Agent</h1>
+        <p class="sub">Multi-agent rail assistant on Amazon Bedrock AgentCore</p>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge" id="mode-badge">connecting&hellip;</span>
+      <span class="badge ghost" id="region-badge"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" class="tab active" id="tab-chat" role="tab"
+            aria-selected="true" aria-controls="panel-chat">Chat</button>
+    <button type="button" class="tab" id="tab-eval" role="tab"
+            aria-selected="false" aria-controls="panel-eval">Evaluation</button>
+  </nav>
+
+  <!-- ===================== CHAT ===================== -->
+  <section id="panel-chat" role="tabpanel" aria-labelledby="tab-chat">
+
+    <div class="identity" id="identity" hidden>
+      <label for="actor">Travelling as</label>
+      <select id="actor" aria-label="Traveller"></select>
+
+      <label for="session">Conversation</label>
+      <select id="session" aria-label="Conversation">
+        <option value="">New conversation</option>
+      </select>
+
+      <button type="button" id="new-session" class="chip">Start new</button>
+      <span class="memory-note" id="memory-note"></span>
+    </div>
+
+    <main class="chat" id="chat" aria-live="polite" aria-label="Conversation">
+      <div class="msg agent">
+        <div class="who">Train Travel Agent</div>
+        <div class="bubble">
+          <p>Hello. I can help you plan rail travel, look after a booking you
+          already hold, and explain the fare and compensation rules.</p>
+          <p>Try one of the prompts below, or ask me anything.</p>
+        </div>
+      </div>
+    </main>
+
+    <div class="suggestions" id="suggestions"></div>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <input id="prompt" type="text" placeholder="Ask about a journey, a booking, or the rules&hellip;"
+             aria-label="Your message" required>
+      <button type="submit" id="send">Send</button>
+    </form>
+  </section>
+
+  <!-- ===================== EVALUATION ===================== -->
+  <section id="panel-eval" role="tabpanel" aria-labelledby="tab-eval" hidden>
+
+    <p class="eval-intro">
+      Score the agents with two independent evaluation SDKs, both using
+      LLM-as-a-judge. Each sub-agent is evaluated directly over A2A, and the
+      router end to end. Runs are independent of the application &mdash; they
+      execute in their own virtual environment and change nothing.
+    </p>
+
+    <div class="eval-controls">
+      <label for="eval-scope">Scope</label>
+      <select id="eval-scope" aria-label="Evaluation scope"></select>
+
+      <label for="eval-mode">Target</label>
+      <select id="eval-mode" aria-label="Evaluation target"></select>
+
+      <label for="eval-concurrency">Threads</label>
+      <select id="eval-concurrency" aria-label="Concurrency">
+        <option value="4">4</option>
+        <option value="8">8</option>
+        <option value="12" selected>12</option>
+        <option value="16">16</option>
+      </select>
+    </div>
+
+    <div class="eval-actions">
+      <button type="button" class="btn primary" id="run-langsmith">
+        Evaluate using LangSmith
+      </button>
+      <button type="button" class="btn primary alt" id="run-strands">
+        Evaluate with Strands Evals
+      </button>
+      <button type="button" class="btn ghost" id="build-report">
+        Generate report &amp; compare
+      </button>
+      <a class="btn link" id="open-dashboard" href="/api/eval/dashboard"
+         target="_blank" rel="noopener" hidden>Open dashboard &#8599;</a>
+    </div>
+
+    <div class="eval-note" id="eval-note" hidden></div>
+
+    <div class="eval-status" id="eval-status" hidden>
+      <div class="eval-status-head">
+        <span class="spinner" id="eval-spinner" aria-hidden="true"></span>
+        <strong id="eval-job-label">&nbsp;</strong>
+        <span class="muted" id="eval-elapsed"></span>
+      </div>
+      <pre class="eval-log" id="eval-log" aria-live="polite"></pre>
+    </div>
+
+    <div class="eval-cards" id="eval-cards"></div>
+
+    <p class="eval-foot">
+      Two judges on purpose. Small differences between them are noise; a case
+      that fails in <em>both</em> is a real finding, and any responsible-AI
+      score below 1.00 is worth reading. Per-component timings require the
+      deployed path &mdash; local runs report wall-clock only.
+    </p>
+  </section>
+
+  <footer class="foot">
+    <span id="session-label">new session</span>
+    <span class="dot">&middot;</span>
+    <span>All travellers, bookings, fares and policies are synthetic</span>
+  </footer>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

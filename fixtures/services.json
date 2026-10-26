@@ -1,0 +1,110 @@
+{
+  "_comment": "Synthetic timetable with seeded, deterministic disruption. AW0715-20261106 is ALWAYS cancelled (drives demo beat 3). AW1420-20261029 is ALWAYS 47 minutes late (drives the Delay Repay demo). Nothing here is randomised or clock-dependent.",
+  "services": [
+    {
+      "service_id": "AW0645-20261106",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "MAN", "date": "2026-11-06",
+      "departure": "06:45", "arrival": "08:53",
+      "duration_minutes": 128, "changes": 0,
+      "status": "on_time", "delay_minutes": 0, "disruption_reason": null,
+      "calling_points": ["EUS", "BHM", "MAN"],
+      "seats_available": {"standard": 42, "first": 9},
+      "wheelchair_spaces_available": 2
+    },
+    {
+      "service_id": "AW0715-20261106",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "MAN", "date": "2026-11-06",
+      "departure": "07:15", "arrival": "09:23",
+      "duration_minutes": 128, "changes": 0,
+      "status": "cancelled", "delay_minutes": null,
+      "disruption_reason": "Overhead line damage between Rugby and Stafford",
+      "calling_points": ["EUS", "BHM", "MAN"],
+      "seats_available": {"standard": 0, "first": 0},
+      "wheelchair_spaces_available": 0,
+      "replacement_advice": "Customers may travel on any Avanti West Coast service to Manchester Piccadilly today without rebooking."
+    },
+    {
+      "service_id": "AW0745-20261106",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "MAN", "date": "2026-11-06",
+      "departure": "07:45", "arrival": "09:55",
+      "duration_minutes": 130, "changes": 0,
+      "status": "on_time", "delay_minutes": 0, "disruption_reason": null,
+      "calling_points": ["EUS", "BHM", "MAN"],
+      "seats_available": {"standard": 18, "first": 4},
+      "wheelchair_spaces_available": 1
+    },
+    {
+      "service_id": "AW0815-20261106",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "MAN", "date": "2026-11-06",
+      "departure": "08:15", "arrival": "10:23",
+      "duration_minutes": 128, "changes": 0,
+      "status": "on_time", "delay_minutes": 0, "disruption_reason": null,
+      "calling_points": ["EUS", "BHM", "MAN"],
+      "seats_available": {"standard": 56, "first": 12},
+      "wheelchair_spaces_available": 2
+    },
+    {
+      "service_id": "AW0915-20261106",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "MAN", "date": "2026-11-06",
+      "departure": "09:15", "arrival": "11:27",
+      "duration_minutes": 132, "changes": 0,
+      "status": "delayed", "delay_minutes": 12,
+      "disruption_reason": "Knock-on delay following earlier overhead line damage",
+      "calling_points": ["EUS", "BHM", "MAN"],
+      "seats_available": {"standard": 71, "first": 14},
+      "wheelchair_spaces_available": 2
+    },
+    {
+      "service_id": "LN0900-20261110",
+      "operator": "LNER",
+      "origin": "KGX", "destination": "EDB", "date": "2026-11-10",
+      "departure": "09:00", "arrival": "13:20",
+      "duration_minutes": 260, "changes": 0,
+      "status": "on_time", "delay_minutes": 0, "disruption_reason": null,
+      "calling_points": ["KGX", "YRK", "EDB"],
+      "seats_available": {"standard": 88, "first": 21},
+      "wheelchair_spaces_available": 2
+    },
+    {
+      "service_id": "TP1732-20261104",
+      "operator": "TransPennine Express",
+      "origin": "MAN", "destination": "LDS", "date": "2026-11-04",
+      "departure": "17:32", "arrival": "18:21",
+      "duration_minutes": 49, "changes": 0,
+      "status": "on_time", "delay_minutes": 0, "disruption_reason": null,
+      "calling_points": ["MAN", "LDS"],
+      "seats_available": {"standard": 23, "first": 0},
+      "wheelchair_spaces_available": 1
+    },
+    {
+      "service_id": "AW1420-20261029",
+      "operator": "Avanti West Coast",
+      "origin": "EUS", "destination": "BHM", "date": "2026-10-29",
+      "departure": "14:20", "arrival": "16:31",
+      "duration_minutes": 131, "changes": 0,
+      "status": "completed_delayed", "delay_minutes": 47,
+      "disruption_reason": "Signalling failure at Milton Keynes Central",
+      "calling_points": ["EUS", "BHM"],
+      "seats_available": {"standard": 0, "first": 0},
+      "wheelchair_spaces_available": 0,
+      "scheduled_arrival": "15:44",
+      "actual_arrival": "16:31"
+    }
+  ],
+  "network_disruption": [
+    {
+      "disruption_id": "DSR-4471",
+      "date": "2026-11-06",
+      "affected_route": "EUS-MAN",
+      "summary": "Overhead line damage between Rugby and Stafford",
+      "severity": "severe",
+      "detail": "The 07:15 London Euston to Manchester Piccadilly is cancelled. Later services are running with minor delays. Ticket acceptance is in place on all Avanti West Coast services to Manchester Piccadilly today.",
+      "expected_resolution": "2026-11-06T12:00:00Z"
+    }
+  ]
+}

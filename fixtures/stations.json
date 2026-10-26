@@ -1,0 +1,36 @@
+{
+  "_comment": "Synthetic station reference data. Real station names and CRS-style codes are used for recognisability; all timetable and fare data built on them is fictional.",
+  "stations": {
+    "EUS": {"crs": "EUS", "name": "London Euston", "city": "London", "step_free": true},
+    "KGX": {"crs": "KGX", "name": "London King's Cross", "city": "London", "step_free": true},
+    "PAD": {"crs": "PAD", "name": "London Paddington", "city": "London", "step_free": true},
+    "MAN": {"crs": "MAN", "name": "Manchester Piccadilly", "city": "Manchester", "step_free": true},
+    "LDS": {"crs": "LDS", "name": "Leeds", "city": "Leeds", "step_free": true},
+    "EDB": {"crs": "EDB", "name": "Edinburgh Waverley", "city": "Edinburgh", "step_free": true},
+    "BHM": {"crs": "BHM", "name": "Birmingham New Street", "city": "Birmingham", "step_free": true},
+    "YRK": {"crs": "YRK", "name": "York", "city": "York", "step_free": false}
+  },
+  "aliases": {
+    "london": "EUS",
+    "london euston": "EUS",
+    "euston": "EUS",
+    "london kings cross": "KGX",
+    "kings cross": "KGX",
+    "london paddington": "PAD",
+    "manchester": "MAN",
+    "manchester piccadilly": "MAN",
+    "leeds": "LDS",
+    "edinburgh": "EDB",
+    "edinburgh waverley": "EDB",
+    "birmingham": "BHM",
+    "birmingham new street": "BHM",
+    "york": "YRK"
+  },
+  "corridors": [
+    {"origin": "EUS", "destination": "MAN", "operator": "Avanti West Coast", "typical_minutes": 128, "typical_changes": 0},
+    {"origin": "KGX", "destination": "EDB", "operator": "LNER", "typical_minutes": 260, "typical_changes": 0},
+    {"origin": "MAN", "destination": "LDS", "operator": "TransPennine Express", "typical_minutes": 49, "typical_changes": 0},
+    {"origin": "EUS", "destination": "BHM", "operator": "Avanti West Coast", "typical_minutes": 84, "typical_changes": 0},
+    {"origin": "KGX", "destination": "YRK", "operator": "LNER", "typical_minutes": 112, "typical_changes": 0}
+  ]
+}

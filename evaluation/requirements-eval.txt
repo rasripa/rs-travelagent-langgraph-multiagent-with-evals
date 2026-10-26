@@ -1,0 +1,52 @@
+# Evaluation-only dependencies. Pinned to the versions this subsystem was
+# built and verified against.
+#
+# THIS FILE MUST NOT BE MERGED INTO THE PROJECT'S requirements.txt.
+#
+# deploy/agentcore/package.py vendors requirements.txt into the deployment zip,
+# and that artifact is already 58 MB against a 250 MB limit. strands-agents-evals
+# alone pulls in strands-agents, strands-agents-tools and their transitive tree
+# (including numpy, protobuf and a Slack SDK). An LLM-as-judge evaluator has no
+# business in a production runtime, and nothing in the application imports any
+# of this.
+#
+# Install into a SEPARATE virtual environment:
+#
+#   uv venv --python 3.12 evaluation/.venv-eval
+#   uv pip install --python evaluation/.venv-eval/bin/python \
+#       -r evaluation/requirements-eval.txt
+#
+# ---------------------------------------------------------------- the judges
+# Runner A. The real package is strands-agents-evals; it imports as
+# `strands_evals`.
+#
+#   DO NOT install `strands-evals`. That is a DIFFERENT PyPI package and a
+#   TYPOSQUAT of this one -- unrelated filler, not the AWS package. Only the
+#   name below is correct.
+strands-agents-evals==1.7.0
+
+# Runner B. `evaluate(upload_results=False)` keeps the run entirely local, so
+# no LangSmith account or API key is required. Pinned because that parameter is
+# flagged beta by the library.
+langsmith==0.14.12
+
+# The judge model client used by Runner B, and by Runner A indirectly through
+# Strands' Bedrock provider.
+langchain-aws==1.9.0
+langchain-core==1.7.0
+
+# ---------------------------------------------------------------- the harness
+# boto3: bedrock-agentcore invoke_agent_runtime in agentcore mode, and
+#        CloudWatch Logs reads for the OpenTelemetry span breakdown.
+boto3==1.43.118
+
+# httpx: POST /invocations against the orchestrator, and the agent-card probes.
+httpx==0.28.1
+
+# a2a-sdk: required to import the application's own common/a2a_client.py, which
+# the harness reuses rather than reimplementing. Must match the ceiling in the
+# project's requirements.txt (a2a-sdk<1) for the client to behave identically.
+a2a-sdk==0.3.26
+
+# ---------------------------------------------------------------- checks
+ruff==0.17.2
