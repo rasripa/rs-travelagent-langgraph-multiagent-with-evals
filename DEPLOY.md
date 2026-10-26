@@ -8,8 +8,8 @@ the actual demo.
 ## 1. Credentials and model access
 
 ```bash
-aws login --profile rs-gen-ai
-export AWS_PROFILE=rs-gen-ai
+aws login --profile <AWS_PROFILE_NAME>
+export AWS_PROFILE=AWS_PROFILE_NAME
 export AWS_REGION=us-west-2
 ```
 
