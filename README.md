@@ -971,7 +971,7 @@ AGENT.md                orientation for an AI agent picking this up
 - **The model is passed as a callable** to `create_react_agent`, so the model id
   is re-resolved every turn and an SSM change applies without a rebuild.
 
-## 15. Honest limitations
+## 15. Limitations
 
 - Fixtures and policy documents are synthetic. No real rail API, no payments.
 - `policy_shim.py` simulates Cedar locally. The real filtering only happens
