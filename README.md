@@ -1,4 +1,4 @@
-# Train Travel Agent
+# Train Travel Agent demo application
 
 A multi-agent rail assistant on **Amazon Bedrock AgentCore**: a domain-agnostic
 router, three Tier-2 sub-agents over A2A, three MCP servers and a managed
