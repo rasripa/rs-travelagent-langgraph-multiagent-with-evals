@@ -26,6 +26,11 @@ Three properties are the point of the build:
 > sub-agents from their agent cards, proves it really delegates, then scores the
 > agents with two independent judges and builds a comparison dashboard.
 
+> **The full design document is [`docs/architecture.html`](docs/architecture.html)** — the
+> complete architecture, every decision behind it and the alternatives that were rejected and
+> why. GitHub serves `.html` as source rather than rendering it, so clone the repo and open the
+> file in a browser, or use the *Download raw file* button.
+
 ```
                         ┌──────────────────────────────────┐
   caller (SigV4) ──────▶ │  Train Travel Agent   (HTTP)    │  TIER 1 — router
